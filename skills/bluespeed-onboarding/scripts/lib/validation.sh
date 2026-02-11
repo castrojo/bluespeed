@@ -16,9 +16,11 @@
 # validation.sh - Prerequisite validation functions
 # NOTE: Reference implementation - agents follow SKILL.md instructions inline
 
-# Source common functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
+# Source common functions (if not already sourced)
+if ! type -t log_info >/dev/null 2>&1; then
+    LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "${LIB_DIR}/common.sh"
+fi
 
 # Check if a Homebrew package is installed
 # Args:
