@@ -1,8 +1,38 @@
-# castrojo/bluespeed Repository Structure
+# castrojo/bluespeed
 
-**Purpose:** Agents and skills for maintaining Project Bluefin
+<!-- POWERLEVEL MANAGED SECTION - START -->
+<!-- This section is maintained by Powerlevel. Manual edits may be overwritten. -->
+
+## Managed by Powerlevel
+
+This project is tracked by [Powerlevel](https://github.com/castrojo/powerlevel), a central project management dashboard for OpenCode + Superpowers.
+
+### For AI Agents
+
+**CRITICAL:** Before making any changes to this project, you MUST:
+
+1. Read the Powerlevel best practices: https://raw.githubusercontent.com/castrojo/powerlevel/main/docs/best-practices/README.md
+2. Review all applicable best practices for this project
+3. Apply MUST requirements strictly (these are lint-enforced)
+4. Follow SHOULD recommendations where appropriate
+
+**Quick Links:**
+- Best Practices Index: https://raw.githubusercontent.com/castrojo/powerlevel/main/docs/best-practices/README.md
+- BP-001 (Issue Forms): https://raw.githubusercontent.com/castrojo/powerlevel/main/docs/best-practices/github-issue-form-validation.md
+- Powerlevel Repository: https://github.com/castrojo/powerlevel
+- Powerlevel Architecture: https://github.com/castrojo/powerlevel/blob/main/AGENTS.md
+
+### Project Info
+
+- **Repository:** castrojo/bluespeed
+- **Onboarded to Powerlevel:** 2026-02-11
+- **Tracking Epic:** [View on GitHub](https://github.com/castrojo/powerlevel/issues?q=is:issue+label:project/bluespeed)
+
+<!-- POWERLEVEL MANAGED SECTION - END -->
 
 ---
+
+## Project-Specific Context
 
 ## ⚠️ CRITICAL: Skills-Based Architecture - READ THIS FIRST
 
