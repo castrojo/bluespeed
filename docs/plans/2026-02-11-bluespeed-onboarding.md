@@ -36,19 +36,25 @@
 - `/var/home/jorge/src/bluespeed/configs/goose-example.yaml`
 
 **Steps:**
-1. Create `configs/README.md` explaining example configurations
+1. Create `configs/README.md` with centralized prerequisite documentation:
+   - **Core AI Tools**: OpenCode (required), Goose (optional)
+   - **MCP Servers**: linux-mcp-server (brew package), dosu (remote-only, no install needed)
+   - **Configuration Utilities**: jq (JSON), yq (YAML)
+   - Complete brew install commands in one centralized location
+   - Package details table with purpose and status
+   - Note: dosu MCP is remote-only (deployment ID: 83775020-c22e-485a-a222-987b2f5a3823)
 2. Create `opencode-example.json` with:
-   - dosu remote MCP server (deployment ID: 83775020-c22e-485a-a222-987b2f5a3823)
+   - dosu remote MCP server (type: remote, url: https://api.dosu.dev/v1/mcp)
    - linux-mcp-server local MCP (command: /home/linuxbrew/.linuxbrew/bin/linux-mcp-server)
    - LINUX_MCP_USER placeholder: REPLACE_WITH_YOUR_USERNAME
+   - Full JSON structure matching OpenCode config schema
 3. Create `goose-example.yaml` with:
    - linux-mcp-server extension (stdio type)
    - LINUX_MCP_USER placeholder: REPLACE_WITH_YOUR_USERNAME
-   - Document dosu support as TBD (pending Goose remote MCP research)
-4. Document prerequisite brew packages:
-   - `ublue-os/tap/linux-mcp-server`
-   - `ublue-os/experimental-tap/opencode-desktop-linux`
-   - `ublue-os/tap/goose-linux`
+   - Document dosu support as TBD (pending Goose remote MCP research - Phase 4)
+4. Add smoke test validation:
+   - Test JSON validity: `jq empty configs/opencode-example.json`
+   - Test YAML validity: `yq eval '.' configs/goose-example.yaml`
 
 ## Task 3: Bash Library Functions
 
@@ -59,21 +65,37 @@
 
 **Steps:**
 1. Create `lib/common.sh` with utility functions:
-   - `log_info()`, `log_error()`, `log_success()` - Formatted output
+   - `log_info()`, `log_error()`, `log_success()`, `log_warn()` - Formatted output with colors
    - `get_username()` - Uses `whoami` to detect current user
-   - `backup_file()` - Creates timestamped backups
-   - `cleanup_on_error()` - Restore backups on failure
+   - `backup_file()` - Creates timestamped backups (.backup suffix with ISO timestamp)
+   - `restore_backup()` - Restore from timestamped backup
+   - `cleanup_on_error()` - Restore backups on failure (trap handler)
+   - Apache license header at top of file
 2. Create `lib/config.sh` with configuration functions:
    - `merge_json_config()` - Uses jq to merge MCP servers into OpenCode config
+     - Skip if MCP server name already exists (log warning)
+     - Preserve all existing user configuration
+     - Automatically detect username via `get_username()`
    - `merge_yaml_config()` - Uses yq to merge extensions into Goose config
-   - `validate_json()` - Check JSON syntax
-   - `validate_yaml()` - Check YAML syntax
-   - `create_default_config()` - Generate config if none exists
+     - Skip if extension name already exists (log warning)
+     - Preserve all existing user configuration
+     - Automatically detect username via `get_username()`
+   - `validate_json()` - Check JSON syntax with jq
+   - `validate_yaml()` - Check YAML syntax with yq
+   - `create_default_config()` - Generate minimal config if none exists
+   - Apache license header at top of file
 3. Create `lib/validation.sh` with prerequisite checks:
-   - `check_brew_package()` - Verify package is installed
+   - `validate_prerequisites()` - Generic checks (brew, jq, yq)
+   - `validate_opencode_prerequisites()` - OpenCode-specific (package checks)
+   - `validate_goose_prerequisites()` - Goose-specific (package checks)
+   - `check_brew_package()` - Verify brew package installed with clear error messages
    - `check_file_exists()` - Verify file/directory existence
-   - `check_command_exists()` - Verify tool is available (jq, yq)
-   - `validate_prerequisites()` - Run all prerequisite checks
+   - `check_command_exists()` - Verify command available in PATH
+   - All error messages include exact brew install commands
+   - Apache license header at top of file
+4. Add smoke test validation:
+   - Test: Source all library files without errors
+   - Test: Call dummy functions (log_info, get_username)
 
 ## Task 4: Bash Setup Scripts
 
@@ -83,29 +105,52 @@
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/scripts/bluespeed-onboarding.sh`
 
 **Steps:**
-1. Create `setup-opencode.sh`:
-   - Source library functions from `lib/`
-   - Validate OpenCode package installed
+1. Create `setup-opencode.sh` (MVP - full dosu + linux-mcp-server support):
+   - Apache license header at top of file
+   - Set strict mode: `set -euo pipefail`
+   - Source library functions from `lib/` (common.sh, config.sh, validation.sh)
+   - Call `validate_opencode_prerequisites()` early (fail fast)
    - Detect username via `get_username()`
-   - Backup existing `~/.config/opencode/opencode.json`
-   - Merge dosu and linux-mcp-server MCP configs
-   - Validate JSON syntax
-   - Print success message with restart instructions
-2. Create `setup-goose.sh` (future Phase 4):
+   - Backup existing `~/.config/opencode/opencode.json` with timestamp
+   - Merge dosu MCP config (skip if exists, log warning)
+   - Merge linux-mcp-server MCP config (skip if exists, log warning)
+   - Validate JSON syntax with `validate_json()`
+   - On error: auto-restore backup via `restore_backup()`
+   - Print success message with restart instructions:
+     - Close all OpenCode windows
+     - Restart OpenCode from application menu or terminal
+     - Verify MCP servers in sidebar panel
+     - Troubleshooting: logs at ~/.config/opencode/logs/
+2. Create `setup-goose.sh` (MVP - linux-mcp-server only, dosu TODO):
+   - Apache license header at top of file
+   - Set strict mode: `set -euo pipefail`
    - Source library functions from `lib/`
-   - Validate Goose package installed
+   - Call `validate_goose_prerequisites()` early (fail fast)
    - Detect username via `get_username()`
-   - Backup existing `~/.config/goose/config.yaml`
-   - Merge linux-mcp-server extension config
-   - Note: dosu remote MCP support pending research
-   - Validate YAML syntax
-   - Print success message with restart instructions
+   - Backup existing `~/.config/goose/config.yaml` with timestamp
+   - Merge linux-mcp-server extension config (skip if exists, log warning)
+   - Add TODO comment: "Phase 4: Add dosu remote MCP support (pending Goose research)"
+   - Validate YAML syntax with `validate_yaml()`
+   - On error: auto-restore backup via `restore_backup()`
+   - Print success message with restart instructions:
+     - Exit Goose session (Ctrl+D or 'exit')
+     - Restart Goose from terminal
+     - Verify extension loading in startup messages
+     - Troubleshooting: logs at ~/.config/goose/logs/
 3. Create `bluespeed-onboarding.sh` main entry point:
+   - Apache license header at top of file
+   - Set strict mode: `set -euo pipefail`
    - Source library functions from `lib/`
-   - Ask user which tool to configure (OpenCode/Goose/Both)
-   - Validate all prerequisites before starting
-   - Call appropriate setup scripts
-   - Handle errors gracefully with rollback
+   - Call `validate_prerequisites()` for generic checks (brew, jq, yq)
+   - Ask user which tool to configure: OpenCode / Goose / Both
+   - Call appropriate setup script(s) based on choice
+   - Handle errors gracefully with rollback via `cleanup_on_error()`
+   - Print final summary of changes made
+4. Make all scripts executable: `chmod +x scripts/*.sh`
+5. Add smoke test validation:
+   - Test: All scripts are executable
+   - Test: Scripts show usage/help with --help flag
+   - Test: Dry-run mode works (if implemented)
 
 ## Task 5: Skill Documentation
 
@@ -123,13 +168,29 @@
    ```
 2. Document skill overview and "When to Use" section
 3. Document workflow steps (reference Bash scripts)
-4. Add prerequisites section (brew packages)
-5. Add error handling and troubleshooting guidance
-6. Create `AGENTS.MD` with agent-specific notes:
-   - How agents should invoke scripts
-   - Expected script outputs
-   - Success criteria verification
+4. Add prerequisites section with centralized brew package installation:
+   - Core AI Tools: OpenCode (required), Goose (optional)
+   - MCP Servers: linux-mcp-server (brew), dosu (remote-only)
+   - Configuration Utilities: jq, yq
+   - Complete brew install commands in one place
+5. Add restart instructions for both tools:
+   - **OpenCode**: Close windows → Restart → Verify MCP panel → Check logs
+   - **Goose**: Exit session → Restart terminal → Verify startup → Check logs
+6. Add error handling and troubleshooting guidance:
+   - Backup/restore process
+   - Log file locations
+   - Config file paths
+   - Common error scenarios
+7. Create `AGENTS.md` with agent-specific notes:
+   - How agents should invoke scripts (direct execution vs skill invocation)
+   - Expected script outputs and exit codes
+   - Success criteria verification steps
    - Example agent invocation pattern
+   - Config merge behavior (skip if exists, preserve user settings)
+8. Add smoke test validation:
+   - Test: SKILL.md has valid frontmatter (name: bluespeed-onboarding)
+   - Test: All referenced script paths exist and match actual files
+   - Test: All brew package names are correct
 
 ## Task 6: GitHub Repository Publishing
 
@@ -162,30 +223,140 @@
 
 ### MVP Scope (Phases 1-3)
 - **OpenCode full support**: dosu + linux-mcp-server configuration
-- **Goose partial support**: linux-mcp-server only (dosu TBD)
+- **Goose partial support**: linux-mcp-server only (dosu marked as TODO for Phase 4)
 - **Manual setup documentation**: As fallback option
-- **Username detection**: Via `whoami` command
-- **Config merging**: Preserve existing MCP servers/extensions
-- **Validation**: JSON/YAML syntax checking
+- **Username detection**: Via `whoami` command (dynamic, portable)
+- **Config merging**: Preserve existing MCP servers/extensions (skip if exists, log warning)
+- **Validation**: JSON/YAML syntax checking with auto-rollback on error
+- **Smoke testing**: Basic validation for each task (config validity, script execution, docs)
+- **Apache License**: All scripts include Apache 2.0 license headers
 
 ### Phase 4 (Future Enhancement)
-- **Goose dosu integration**: Research remote MCP server configuration
-- **Update goose-example.yaml**: Add dosu if supported
-- **Update SKILL.md**: Add Goose dosu instructions
-- **Test with Goose**: Validate skill execution in Goose
+- **Goose dosu integration**: Research remote MCP server configuration for Goose
+- **Update goose-example.yaml**: Add dosu if supported by Goose
+- **Update SKILL.md**: Add Goose dosu instructions if supported
+- **Test with Goose**: Validate skill execution in Goose environment
+- **Auto-install enhancement**: Add `auto_install_prerequisites()` function
+  - Detect missing brew packages
+  - Prompt user: "Install X missing packages? (y/n)"
+  - Auto-install with `brew install` on confirmation
+  - Verify installation success with clear error handling
+  - Document in AGENTS.md for future agents to implement
 
 ### Key Technical Decisions
-1. **Username detection**: `whoami` command (dynamic, portable)
+1. **Username detection**: `whoami` command (dynamic, portable, cross-platform)
 2. **Repository visibility**: Public (aligns with Bluefin open source philosophy)
-3. **MVP approach**: OpenCode first, Goose incrementally
-4. **Deployment ID**: Public and safe to commit (83775020-c22e-485a-a222-987b2f5a3823)
-5. **Config strategy**: Merge, don't replace (preserve existing work)
+3. **License**: Apache 2.0 for all scripts and configuration files
+4. **MVP approach**: OpenCode first (full support), Goose incremental (Phase 4 for dosu)
+5. **Deployment ID**: Public and safe to commit (83775020-c22e-485a-a222-987b2f5a3823)
+6. **Config strategy**: Merge, don't replace (preserve existing work, skip duplicates)
+7. **Prerequisite validation**: Centralized in `lib/validation.sh` with clear error messages
+8. **Error handling**: Auto-backup before changes, auto-rollback on failure
+9. **jq/yq availability**: System jq (/usr/bin/jq) used, yq from brew required
 
-### Prerequisites
-Users must install these brew packages before running skill:
-- `brew install ublue-os/tap/linux-mcp-server`
-- `brew install --cask ublue-os/experimental-tap/opencode-desktop-linux`
-- `brew install --cask ublue-os/tap/goose-linux` (optional)
+### Config Merge Behavior (Agent Implementation Guidance)
+
+**For OpenCode (JSON):**
+```bash
+# If MCP server name exists → skip with warning message
+# If MCP server name is new → add to .mcp object
+# Preserve all existing user configuration
+# Example: Merging "dosu" MCP
+if jq -e '.mcp.dosu' "$config_path" >/dev/null 2>&1; then
+    log_warn "dosu MCP already configured, skipping..."
+else
+    # Merge new MCP server using jq
+    jq '.mcp.dosu = {...}' "$config_path" > "$config_path.tmp"
+    mv "$config_path.tmp" "$config_path"
+fi
+```
+
+**For Goose (YAML):**
+```bash
+# If extension name exists → skip with warning message
+# If extension name is new → add to extensions array
+# Preserve all existing user configuration
+# Example: Merging "linux-mcp-server" extension
+if yq eval '.extensions[] | select(.name == "linux-mcp-server")' "$config_path" | grep -q linux-mcp-server; then
+    log_warn "linux-mcp-server extension already configured, skipping..."
+else
+    # Merge new extension using yq
+    yq eval '.extensions += [...]' "$config_path" > "$config_path.tmp"
+    mv "$config_path.tmp" "$config_path"
+fi
+```
+
+**Backup Strategy:**
+- Always create timestamped backup before modification
+- Format: `<original>.<ISO-timestamp>.backup` (e.g., `opencode.json.2026-02-11T16:30:45.backup`)
+- On error: restore from backup automatically via `restore_backup()`
+- Log all operations for troubleshooting
+
+**Restart Instructions:**
+
+**OpenCode:**
+1. Close all OpenCode windows
+2. Restart OpenCode from application menu or `opencode` command
+3. Verify MCP servers loaded: Check "MCP Servers" panel in sidebar
+4. Test: Ask "Can you check my system information?" (tests linux-mcp-server)
+5. Troubleshooting: Logs at `~/.config/opencode/logs/`, config at `~/.config/opencode/opencode.json`
+
+**Goose:**
+1. Exit Goose session: `exit` command or `Ctrl+D`
+2. Restart Goose from terminal: `goose`
+3. Verify extensions: Check startup messages for "linux-mcp-server" loading
+4. Test: Ask "Can you check my disk usage?" (tests linux-mcp-server)
+5. Troubleshooting: Logs at `~/.config/goose/logs/`, config at `~/.config/goose/config.yaml`
+
+### Prerequisites (Centralized Installation)
+
+**All required packages must be installed via Homebrew before running the skill.**
+
+#### Core AI Tools
+```bash
+# OpenCode (Primary - Required for MVP)
+brew install --cask ublue-os/experimental-tap/opencode-desktop-linux
+
+# Goose (Optional - MVP has partial support)
+brew install --cask ublue-os/tap/goose-linux
+```
+
+#### MCP Servers
+```bash
+# linux-mcp-server (Local MCP - Required)
+brew install ublue-os/tap/linux-mcp-server
+
+# dosu MCP (Remote - No installation needed)
+# Configured via deployment ID: 83775020-c22e-485a-a222-987b2f5a3823
+# API endpoint: https://api.dosu.dev/v1/mcp
+```
+
+#### Configuration Utilities
+```bash
+# JSON manipulation (Required)
+brew install jq
+
+# YAML manipulation (Required)
+brew install yq
+```
+
+#### Package Summary Table
+
+| Package | Type | Purpose | Status |
+|---------|------|---------|--------|
+| `ublue-os/experimental-tap/opencode-desktop-linux` | Cask | AI coding assistant (primary) | Required for OpenCode setup |
+| `ublue-os/tap/goose-linux` | Cask | AI coding assistant (alternative) | Optional (MVP partial support) |
+| `ublue-os/tap/linux-mcp-server` | Formula | Local MCP for Linux diagnostics | Required |
+| `jq` | Formula | JSON config manipulation | Required |
+| `yq` | Formula | YAML config manipulation | Required |
+| dosu MCP | Remote | Bluefin knowledge base MCP | No install needed (remote) |
+
+**Note for Future Agents:**
+- All prerequisite validation happens in `lib/validation.sh`
+- Generic checks (brew, jq, yq): `validate_prerequisites()`
+- Tool-specific checks: `validate_opencode_prerequisites()`, `validate_goose_prerequisites()`
+- Error messages include exact brew install commands
+- Phase 4 enhancement: Auto-install missing packages with user confirmation
 
 ### Configuration Paths
 - **OpenCode**: `~/.config/opencode/opencode.json`
@@ -200,10 +371,16 @@ Users must install these brew packages before running skill:
 
 ### Success Criteria
 - ✅ Repository `castrojo/bluespeed` is public on GitHub
-- ✅ OpenCode users can configure dosu + linux-mcp-server
-- ✅ Goose users can configure linux-mcp-server (dosu documented as TBD)
+- ✅ All scripts include Apache 2.0 license headers
+- ✅ OpenCode users can configure dosu + linux-mcp-server (full support)
+- ✅ Goose users can configure linux-mcp-server (Phase 4 TODO for dosu)
 - ✅ Username detected dynamically via `whoami`
-- ✅ Existing configs preserved and merged
-- ✅ Clear documentation for manual setup
+- ✅ Existing configs preserved and merged (skip duplicates)
+- ✅ Clear documentation for manual setup with restart instructions
+- ✅ Centralized prerequisite installation (all brew packages in one place)
+- ✅ Validation functions with exact brew install commands in error messages
+- ✅ Auto-backup and auto-rollback on errors
+- ✅ Smoke tests for each task (config validity, script execution, docs)
 - ✅ Powerlevel tracking configured
 - ✅ org/repo convention documented in powerlevel
+- ✅ Phase 4 auto-install enhancement documented for future agents
