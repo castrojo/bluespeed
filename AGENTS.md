@@ -2,6 +2,66 @@
 
 **Purpose:** Agents and skills for maintaining Project Bluefin
 
+---
+
+## ⚠️ CRITICAL: Skills-Based Architecture - READ THIS FIRST
+
+**This repository follows a STRICT skills-based pattern. All future agents MUST follow this architecture.**
+
+### Core Principles (MANDATORY)
+
+1. **SKILL.md is the Source of Truth**
+   - Every skill's `SKILL.md` contains COMPLETE, EXECUTABLE instructions
+   - Agents read `SKILL.md` from GitHub and execute instructions inline
+   - NO git clone required - agents work from remote repository
+   - SKILL.md must be self-contained and actionable
+
+2. **Bash Scripts are OPTIONAL REFERENCE**
+   - Scripts in `scripts/` directory are examples for manual users
+   - Agents DO NOT run bash scripts - they follow SKILL.md instructions
+   - Scripts serve as reference implementations only
+   - Keep scripts in sync with SKILL.md, but SKILL.md is authoritative
+
+3. **User Invocation Pattern**
+   - User says: "Onboard me to projectbluefin/bluespeed" or "Onboard me to castrojo/bluespeed"
+   - Agent searches GitHub repository: `castrojo/bluespeed`
+   - Agent finds and reads: `skills/<skill-name>/SKILL.md`
+   - Agent executes instructions inline using Bash tool
+   - NO CLONING, NO SCRIPT EXECUTION - direct instruction following only
+
+4. **Auto-Installation Philosophy**
+   - Skills auto-install missing prerequisites via Homebrew
+   - Fail fast if Homebrew not installed
+   - Verify each package after installation
+   - Provide clear error messages with remediation steps
+
+5. **Configuration Management**
+   - Always backup configs before modification (timestamped: `.YYYY-MM-DDTHH:MM:SS.backup`)
+   - Merge, never overwrite - preserve existing user settings
+   - Skip duplicates with warning messages
+   - Validate JSON/YAML after changes
+   - Auto-rollback on validation errors
+
+### Forbidden Patterns (DO NOT DO THIS)
+
+❌ **DO NOT** tell users to clone this repository  
+❌ **DO NOT** execute bash scripts from this repo  
+❌ **DO NOT** require manual setup steps that can be automated  
+❌ **DO NOT** write SKILL.md as documentation only - it must be executable  
+❌ **DO NOT** assume prerequisites are installed - auto-install them  
+
+### Required Patterns (ALWAYS DO THIS)
+
+✅ **DO** read SKILL.md from GitHub directly  
+✅ **DO** execute inline commands via Bash tool  
+✅ **DO** auto-install missing prerequisites  
+✅ **DO** backup configs before modifying  
+✅ **DO** validate all changes and auto-rollback on errors  
+✅ **DO** keep SKILL.md and bash scripts in sync  
+✅ **DO** provide clear success/error messages to users
+
+---
+
 ## Directory Organization
 
 ```

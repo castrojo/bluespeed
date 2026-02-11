@@ -5,11 +5,28 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Create the bluespeed-onboarding skill and agent to automate setup of dosu MCP and linux-mcp-server for Bluefin maintainers using OpenCode.
+**Goal:** Create the bluespeed-onboarding skill to automate setup of dosu MCP and linux-mcp-server for Bluefin maintainers using OpenCode.
 
-**Architecture:** Skill-based automation system that detects user's AI tool (OpenCode/Goose), verifies prerequisites, and merges MCP server configurations into existing config files. MVP focuses on OpenCode with full dosu + linux-mcp-server support. Goose support planned as Phase 4 enhancement.
+**Architecture:** SKILL-CENTRIC automation where agents read SKILL.md from GitHub and execute instructions inline. NO git clone required. Bash scripts are optional reference implementations for manual users. Skills auto-install prerequisites and merge MCP configurations safely.
 
-**Tech Stack:** Bash scripts, JSON/YAML configuration manipulation, OpenCode skills system, MCP server integration
+**Tech Stack:** OpenCode skills (SKILL.md as executable specification), inline bash commands via agent, jq/yq for config manipulation, MCP server integration
+
+## ⚠️ CRITICAL ARCHITECTURE DECISION
+
+**Skills-Based Pattern (MANDATORY):**
+- **SKILL.md is the source of truth** - contains complete executable instructions
+- **Agents read from GitHub** - no cloning, agents execute instructions inline
+- **Bash scripts are optional** - reference implementations for manual users only
+- **Auto-installation** - skills install missing prerequisites automatically
+- **Safe merging** - backup before changes, skip duplicates, auto-rollback on errors
+
+**User Experience Flow:**
+1. User: "Onboard me to projectbluefin/bluespeed"
+2. Agent searches GitHub: `castrojo/bluespeed`
+3. Agent reads: `skills/bluespeed-onboarding/SKILL.md`
+4. Agent executes instructions inline (brew install, jq commands, config merging)
+5. Agent reports results, tells user to restart OpenCode
+6. Done - no cloning, no manual steps
 
 ## Task 1: Repository Initialization
 
@@ -35,6 +52,8 @@
 - `/var/home/jorge/src/bluespeed/configs/opencode-example.json`
 - `/var/home/jorge/src/bluespeed/configs/goose-example.yaml`
 
+**Purpose:** Provide reference templates showing the target configuration structure. These are NOT executed by agents - they serve as documentation and examples for manual setup.
+
 **Steps:**
 1. Create `configs/README.md` with centralized prerequisite documentation:
    - **Core AI Tools**: OpenCode (required), Goose (optional)
@@ -56,22 +75,25 @@
    - Test JSON validity: `jq empty configs/opencode-example.json`
    - Test YAML validity: `yq eval '.' configs/goose-example.yaml`
 
-## Task 3: Bash Library Functions
+## Task 3: Bash Library Functions (Optional Reference)
 
 **Files:**
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/scripts/lib/common.sh`
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/scripts/lib/config.sh`
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/scripts/lib/validation.sh`
 
+**Purpose:** Optional reference implementations for manual users. Agents execute SKILL.md instructions inline - these scripts are NOT required for agent execution.
+
 **Steps:**
 1. Create `lib/common.sh` with utility functions:
+   - Apache license header with note: "Reference implementation - agents follow SKILL.md"
    - `log_info()`, `log_error()`, `log_success()`, `log_warn()` - Formatted output with colors
    - `get_username()` - Uses `whoami` to detect current user
    - `backup_file()` - Creates timestamped backups (.backup suffix with ISO timestamp)
    - `restore_backup()` - Restore from timestamped backup
    - `cleanup_on_error()` - Restore backups on failure (trap handler)
-   - Apache license header at top of file
 2. Create `lib/config.sh` with configuration functions:
+   - Apache license header with note: "Reference implementation - agents follow SKILL.md"
    - `merge_json_config()` - Uses jq to merge MCP servers into OpenCode config
      - Skip if MCP server name already exists (log warning)
      - Preserve all existing user configuration
@@ -83,8 +105,8 @@
    - `validate_json()` - Check JSON syntax with jq
    - `validate_yaml()` - Check YAML syntax with yq
    - `create_default_config()` - Generate minimal config if none exists
-   - Apache license header at top of file
 3. Create `lib/validation.sh` with prerequisite checks:
+   - Apache license header with note: "Reference implementation - agents follow SKILL.md"
    - `validate_prerequisites()` - Generic checks (brew, jq, yq)
    - `validate_opencode_prerequisites()` - OpenCode-specific (package checks)
    - `validate_goose_prerequisites()` - Goose-specific (package checks)
@@ -92,21 +114,22 @@
    - `check_file_exists()` - Verify file/directory existence
    - `check_command_exists()` - Verify command available in PATH
    - All error messages include exact brew install commands
-   - Apache license header at top of file
 4. Add smoke test validation:
    - Test: Source all library files without errors
    - Test: Call dummy functions (log_info, get_username)
 
-## Task 4: Bash Setup Scripts
+## Task 4: Bash Setup Scripts (Optional Reference)
 
 **Files:**
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/scripts/setup-opencode.sh`
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/scripts/setup-goose.sh`
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/scripts/bluespeed-onboarding.sh`
 
+**Purpose:** Optional standalone scripts for manual users. Agents execute SKILL.md instructions inline - these scripts are NOT required for agent execution.
+
 **Steps:**
-1. Create `setup-opencode.sh` (MVP - full dosu + linux-mcp-server support):
-   - Apache license header at top of file
+1. Create `setup-opencode.sh` (Reference implementation for OpenCode setup):
+   - Apache license header with note: "Reference implementation - agents follow SKILL.md"
    - Set strict mode: `set -euo pipefail`
    - Source library functions from `lib/` (common.sh, config.sh, validation.sh)
    - Call `validate_opencode_prerequisites()` early (fail fast)
@@ -116,13 +139,9 @@
    - Merge linux-mcp-server MCP config (skip if exists, log warning)
    - Validate JSON syntax with `validate_json()`
    - On error: auto-restore backup via `restore_backup()`
-   - Print success message with restart instructions:
-     - Close all OpenCode windows
-     - Restart OpenCode from application menu or terminal
-     - Verify MCP servers in sidebar panel
-     - Troubleshooting: logs at ~/.config/opencode/logs/
-2. Create `setup-goose.sh` (MVP - linux-mcp-server only, dosu TODO):
-   - Apache license header at top of file
+   - Print success message with restart instructions
+2. Create `setup-goose.sh` (Reference implementation for Goose setup):
+   - Apache license header with note: "Reference implementation - agents follow SKILL.md"
    - Set strict mode: `set -euo pipefail`
    - Source library functions from `lib/`
    - Call `validate_goose_prerequisites()` early (fail fast)
@@ -132,13 +151,9 @@
    - Add TODO comment: "Phase 4: Add dosu remote MCP support (pending Goose research)"
    - Validate YAML syntax with `validate_yaml()`
    - On error: auto-restore backup via `restore_backup()`
-   - Print success message with restart instructions:
-     - Exit Goose session (Ctrl+D or 'exit')
-     - Restart Goose from terminal
-     - Verify extension loading in startup messages
-     - Troubleshooting: logs at ~/.config/goose/logs/
+   - Print success message with restart instructions
 3. Create `bluespeed-onboarding.sh` main entry point:
-   - Apache license header at top of file
+   - Apache license header with note: "Reference implementation - agents follow SKILL.md"
    - Set strict mode: `set -euo pipefail`
    - Source library functions from `lib/`
    - Call `validate_prerequisites()` for generic checks (brew, jq, yq)
@@ -152,45 +167,48 @@
    - Test: Scripts show usage/help with --help flag
    - Test: Dry-run mode works (if implemented)
 
-## Task 5: Skill Documentation
+## Task 5: Skill Documentation (PRIMARY IMPLEMENTATION)
 
 **Files:**
-- `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/SKILL.md`
+- `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/SKILL.md` ⭐ **CRITICAL - EXECUTABLE SPECIFICATION**
 - `/var/home/jorge/src/bluespeed/skills/bluespeed-onboarding/AGENTS.md`
 
+**Purpose:** Create SKILL.md with COMPLETE, EXECUTABLE instructions that agents read from GitHub and execute inline. This is the PRIMARY implementation - bash scripts are optional reference only.
+
 **Steps:**
-1. Create `SKILL.md` with frontmatter and user instructions:
+1. Create `SKILL.md` with frontmatter:
    ```yaml
    ---
    name: bluespeed-onboarding
    description: Setup dosu MCP and linux-mcp-server for Bluefin maintainers
    ---
    ```
-2. Document skill overview and "When to Use" section
-3. Document workflow steps (reference Bash scripts)
-4. Add prerequisites section with centralized brew package installation:
-   - Core AI Tools: OpenCode (required), Goose (optional)
-   - MCP Servers: linux-mcp-server (brew), dosu (remote-only)
-   - Configuration Utilities: jq, yq
-   - Complete brew install commands in one place
-5. Add restart instructions for both tools:
-   - **OpenCode**: Close windows → Restart → Verify MCP panel → Check logs
-   - **Goose**: Exit session → Restart terminal → Verify startup → Check logs
-6. Add error handling and troubleshooting guidance:
-   - Backup/restore process
-   - Log file locations
-   - Config file paths
-   - Common error scenarios
-7. Create `AGENTS.md` with agent-specific notes:
-   - How agents should invoke scripts (direct execution vs skill invocation)
-   - Expected script outputs and exit codes
-   - Success criteria verification steps
-   - Example agent invocation pattern
-   - Config merge behavior (skip if exists, preserve user settings)
+2. Add "When to Use" section:
+   - User says: "Onboard me to projectbluefin/bluespeed" or "Onboard me to castrojo/bluespeed"
+   - New Bluefin contributor needs MCP servers configured
+3. Add complete step-by-step executable instructions:
+   - **Step 1**: Verify Homebrew (fail fast if missing)
+   - **Step 2**: Auto-install jq if missing: `brew install jq`
+   - **Step 3**: Auto-install yq if missing: `brew install yq`
+   - **Step 4**: Auto-install linux-mcp-server if missing: `brew install ublue-os/tap/linux-mcp-server`
+   - **Step 5**: Detect username: `USERNAME=$(whoami)`
+   - **Step 6**: Backup existing config with timestamp
+   - **Step 7**: Merge dosu MCP (skip if exists, use jq commands)
+   - **Step 8**: Merge linux-mcp-server (skip if exists, use jq commands with $USERNAME)
+   - **Step 9**: Validate JSON config with jq, auto-rollback on error
+   - **Step 10**: Tell user to restart OpenCode with clear instructions
+4. Add error handling section with rollback instructions
+5. Add success criteria checklist
+6. Include full jq command examples for config merging (copy-paste ready)
+7. Create `AGENTS.md` with execution notes:
+   - **Key principle**: Agents read SKILL.md from GitHub, execute inline
+   - **No cloning required**: Agent uses Bash tool for each step
+   - **Bash scripts optional**: Reference implementations for manual users only
+   - Expected behavior and success output examples
 8. Add smoke test validation:
-   - Test: SKILL.md has valid frontmatter (name: bluespeed-onboarding)
-   - Test: All referenced script paths exist and match actual files
-   - Test: All brew package names are correct
+   - Test: SKILL.md has valid frontmatter
+   - Test: All jq/brew commands are syntactically correct
+   - Test: Config paths are accurate
 
 ## Task 6: GitHub Repository Publishing
 
@@ -221,15 +239,30 @@
 
 ## Implementation Notes
 
+### ⚠️ CRITICAL: Skills-Based Architecture
+
+**PRIMARY IMPLEMENTATION: SKILL.md**
+- SKILL.md is the executable specification agents follow
+- Agents read from GitHub, execute inline via Bash tool
+- NO git clone required, NO bash script execution required
+- Bash scripts are optional reference implementations only
+
+**User Experience:**
+1. User: "Onboard me to projectbluefin/bluespeed"
+2. Agent searches: `castrojo/bluespeed` repository on GitHub
+3. Agent reads: `skills/bluespeed-onboarding/SKILL.md` from remote
+4. Agent executes: Each step inline using Bash tool
+5. Result: MCP servers configured, user told to restart OpenCode
+
 ### MVP Scope (Phases 1-3)
-- **OpenCode full support**: dosu + linux-mcp-server configuration
+- **OpenCode full support**: dosu + linux-mcp-server auto-configuration
 - **Goose partial support**: linux-mcp-server only (dosu marked as TODO for Phase 4)
-- **Manual setup documentation**: As fallback option
+- **Auto-installation**: Missing packages installed via brew automatically
 - **Username detection**: Via `whoami` command (dynamic, portable)
 - **Config merging**: Preserve existing MCP servers/extensions (skip if exists, log warning)
 - **Validation**: JSON/YAML syntax checking with auto-rollback on error
 - **Smoke testing**: Basic validation for each task (config validity, script execution, docs)
-- **Apache License**: All scripts include Apache 2.0 license headers
+- **Apache License**: All scripts include Apache 2.0 license headers (reference only)
 
 ### Phase 4 (Future Enhancement)
 - **Goose dosu integration**: Research remote MCP server configuration for Goose
