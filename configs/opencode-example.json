@@ -7,12 +7,14 @@
         "X-Deployment-ID": "83775020-c22e-485a-a222-987b2f5a3823"
       }
     },
-    "linux-mcp-server": {
-      "type": "stdio",
-      "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
-      "env": {
-        "LINUX_MCP_USER": "REPLACE_WITH_YOUR_USERNAME"
-      }
+    "linux_mcp_server": {
+      "type": "local",
+      "command": [
+        "/usr/bin/env",
+        "LINUX_MCP_USER=REPLACE_WITH_YOUR_USERNAME",
+        "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server"
+      ],
+      "enabled": true
     }
   }
 }

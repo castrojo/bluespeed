@@ -66,19 +66,17 @@ merge_linux_mcp() {
     local username="$2"
     
     # Check if linux-mcp-server already exists
-    if jq -e '.mcp."linux-mcp-server"' "$config_path" >/dev/null 2>&1; then
+    if jq -e '.mcp."linux_mcp_server"' "$config_path" >/dev/null 2>&1; then
         log_warn "linux-mcp-server already configured, skipping..."
         return 1
     fi
     
     # Merge linux-mcp-server configuration
     local temp_file="${config_path}.tmp"
-    if jq --arg user "$username" '.mcp."linux-mcp-server" = {
-        "type": "stdio",
-        "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
-        "env": {
-            "LINUX_MCP_USER": $user
-        }
+    if jq --arg user "$username" '.mcp."linux_mcp_server" = {
+        "type": "local",
+        "command": ["/usr/bin/env", "LINUX_MCP_USER=" + $user, "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server"],
+        "enabled": true
     }' "$config_path" > "$temp_file"; then
         mv "$temp_file" "$config_path"
         log_success "Added linux-mcp-server configuration (user: $username)"
@@ -100,17 +98,17 @@ merge_goose_linux_mcp() {
     local username="$2"
     
     # Check if linux-mcp-server extension already exists
-    if yq eval '.extensions."linux-mcp-server"' "$config_path" 2>/dev/null | grep -q -v "null"; then
+    if yq eval '.extensions."linux_mcp_server"' "$config_path" 2>/dev/null | grep -q -v "null"; then
         log_warn "linux-mcp-server extension already configured, skipping..."
         return 1
     fi
     
     # Merge linux-mcp-server extension as a map key (not a list item)
     local temp_file="${config_path}.tmp"
-    if yq eval '.extensions."linux-mcp-server" = {
+    if yq eval '.extensions."linux_mcp_server" = {
         "enabled": true,
-        "type": "stdio",
-        "name": "linux-mcp-server",
+        "type": "local",
+        "name": "linux_mcp_server",
         "description": "Linux system diagnostics and maintenance tools",
         "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
         "env": {
@@ -213,7 +211,7 @@ merge_vscode_mcp_servers() {
     # Check if mcp.servers already exists with both servers
     local has_dosu has_linux_mcp
     has_dosu=$(jq -e '.mcp.servers.dosu' "$config_path" > /dev/null 2>&1 && echo 1 || echo 0)
-    has_linux_mcp=$(jq -e '.mcp.servers."linux-mcp-server"' "$config_path" > /dev/null 2>&1 && echo 1 || echo 0)
+    has_linux_mcp=$(jq -e '.mcp.servers."linux_mcp_server"' "$config_path" > /dev/null 2>&1 && echo 1 || echo 0)
     
     if [[ $has_dosu -eq 1 && $has_linux_mcp -eq 1 ]]; then
         log_warn "Both dosu and linux-mcp-server already configured in mcp.servers, skipping..."
@@ -236,8 +234,8 @@ merge_vscode_mcp_servers() {
     
     # Add linux-mcp-server if missing
     if [[ $has_linux_mcp -eq 0 ]]; then
-        jq_filter+=' | .mcp.servers."linux-mcp-server" = {
-            "type": "stdio",
+        jq_filter+=' | .mcp.servers."linux_mcp_server" = {
+            "type": "local",
             "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
             "env": {
                 "LINUX_MCP_USER": $user
@@ -268,7 +266,7 @@ merge_gemini_mcp_servers() {
     # Check if mcpServers already exists with both servers
     local has_dosu has_linux_mcp
     has_dosu=$(jq -e '.mcpServers.dosu' "$config_path" > /dev/null 2>&1 && echo 1 || echo 0)
-    has_linux_mcp=$(jq -e '.mcpServers."linux-mcp-server"' "$config_path" > /dev/null 2>&1 && echo 1 || echo 0)
+    has_linux_mcp=$(jq -e '.mcpServers."linux_mcp_server"' "$config_path" > /dev/null 2>&1 && echo 1 || echo 0)
     
     if [[ $has_dosu -eq 1 && $has_linux_mcp -eq 1 ]]; then
         log_warn "Both dosu and linux-mcp-server already configured in mcpServers, skipping..."
@@ -290,7 +288,7 @@ merge_gemini_mcp_servers() {
     
     # Add linux-mcp-server if missing
     if [[ $has_linux_mcp -eq 0 ]]; then
-        jq_filter+=' | .mcpServers."linux-mcp-server" = {
+        jq_filter+=' | .mcpServers."linux_mcp_server" = {
             "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
             "env": {
                 "LINUX_MCP_USER": $user

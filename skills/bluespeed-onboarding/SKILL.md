@@ -160,16 +160,14 @@ fi
 
 ```bash
 # Check if linux-mcp-server already exists
-if jq -e '.mcp."linux-mcp-server"' "$OPENCODE_CONFIG" >/dev/null 2>&1; then
+if jq -e '.mcp."linux_mcp_server"' "$OPENCODE_CONFIG" >/dev/null 2>&1; then
     echo "WARNING: linux-mcp-server already configured, skipping..."
 else
     # Merge linux-mcp-server configuration
-    jq --arg user "$USERNAME" '.mcp."linux-mcp-server" = {
-        "type": "stdio",
-        "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
-        "env": {
-            "LINUX_MCP_USER": $user
-        }
+    jq --arg user "$USERNAME" '.mcp."linux_mcp_server" = {
+        "type": "local",
+        "command": ["/usr/bin/env", "LINUX_MCP_USER=" + $user, "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server"],
+        "enabled": true
     }' "$OPENCODE_CONFIG" > "${OPENCODE_CONFIG}.tmp"
     mv "${OPENCODE_CONFIG}.tmp" "$OPENCODE_CONFIG"
     echo "SUCCESS: Added linux-mcp-server configuration (user: $USERNAME)"
