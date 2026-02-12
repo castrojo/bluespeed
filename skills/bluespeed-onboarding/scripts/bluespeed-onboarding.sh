@@ -30,27 +30,30 @@ bluespeed-onboarding - Setup MCP servers for Bluefin maintenance
 
 Usage: $0 [OPTIONS]
 
-Configure OpenCode and/or Goose with dosu MCP and linux-mcp-server for
+Configure AI coding tools with dosu MCP and linux-mcp-server for
 Project Bluefin maintenance work.
 
 Options:
-  -h, --help     Show this help message
-  -o, --opencode Configure OpenCode only
-  -g, --goose    Configure Goose only
-  -a, --all      Configure both OpenCode and Goose (default if no option)
+  -h, --help         Show this help message
+  -o, --opencode     Configure OpenCode only
+  -g, --goose        Configure Goose only
+  -v, --vscode       Configure VS Code only
+  -t, --antigravity  Configure Antigravity only
+  -m, --gemini       Configure Gemini CLI only
+  -a, --all          Configure all detected tools (default if no option)
 
 Prerequisites:
   brew install jq
   brew install yq
   brew install ublue-os/tap/linux-mcp-server
-  brew install --cask ublue-os/experimental-tap/opencode-desktop-linux
-  brew install --cask ublue-os/tap/goose-linux  # Optional
 
 Examples:
-  $0              # Interactive mode - asks which tool to configure
-  $0 --opencode   # Configure OpenCode only
-  $0 --goose      # Configure Goose only
-  $0 --all        # Configure both tools
+  $0                 # Interactive mode - asks which tool to configure
+  $0 --opencode      # Configure OpenCode only
+  $0 --antigravity   # Configure Antigravity only
+  $0 --vscode        # Configure VS Code only
+  $0 --gemini        # Configure Gemini CLI only
+  $0 --all           # Configure all detected tools
 
 For more information, see:
   https://github.com/castrojo/bluespeed
@@ -64,12 +67,15 @@ interactive_mode() {
     echo ""
     echo "Which AI tool would you like to configure?"
     echo ""
-    echo "  1) OpenCode (recommended - full support)"
-    echo "  2) Goose (partial support - linux-mcp-server only)"
-    echo "  3) Both"
-    echo "  4) Exit"
+    echo "  1) OpenCode"
+    echo "  2) Goose"
+    echo "  3) VS Code"
+    echo "  4) Antigravity"
+    echo "  5) Gemini CLI"
+    echo "  6) All detected tools"
+    echo "  7) Exit"
     echo ""
-    read -p "Enter choice [1-4]: " choice
+    read -p "Enter choice [1-7]: " choice
     
     case $choice in
         1)
@@ -81,10 +87,22 @@ interactive_mode() {
             return 2
             ;;
         3)
-            log_info "Selected: Both"
+            log_info "Selected: VS Code"
             return 3
             ;;
         4)
+            log_info "Selected: Antigravity"
+            return 4
+            ;;
+        5)
+            log_info "Selected: Gemini CLI"
+            return 5
+            ;;
+        6)
+            log_info "Selected: All tools"
+            return 6
+            ;;
+        7)
             log_info "Exiting..."
             exit 0
             ;;
@@ -113,6 +131,18 @@ main() {
                 mode="goose"
                 shift
                 ;;
+            -v|--vscode)
+                mode="vscode"
+                shift
+                ;;
+            -t|--antigravity)
+                mode="antigravity"
+                shift
+                ;;
+            -m|--gemini)
+                mode="gemini"
+                shift
+                ;;
             -a|--all)
                 mode="all"
                 shift
@@ -132,7 +162,10 @@ main() {
         case $choice in
             1) mode="opencode" ;;
             2) mode="goose" ;;
-            3) mode="all" ;;
+            3) mode="vscode" ;;
+            4) mode="antigravity" ;;
+            5) mode="gemini" ;;
+            6) mode="all" ;;
         esac
     fi
     
@@ -142,6 +175,31 @@ main() {
     if ! validate_prerequisites; then
         log_error "Generic prerequisites not met. Please install missing packages and try again."
         exit 1
+    fi
+    
+    # Check if linux-mcp-server is installed
+    if [[ ! -f /home/linuxbrew/.linuxbrew/bin/linux-mcp-server ]]; then
+        log_warn "linux-mcp-server is not installed"
+        echo ""
+        read -p "Would you like to install linux-mcp-server now? [Y/n]: " install_choice
+        install_choice=${install_choice:-Y}
+        
+        if [[ "$install_choice" =~ ^[Yy]$ ]]; then
+            log_info "Installing linux-mcp-server..."
+            if brew install ublue-os/tap/linux-mcp-server; then
+                log_success "linux-mcp-server installed successfully"
+            else
+                log_error "Failed to install linux-mcp-server"
+                log_error "Please install manually: brew install ublue-os/tap/linux-mcp-server"
+                exit 1
+            fi
+        else
+            log_error "linux-mcp-server is required for MCP server configuration"
+            log_error "Please install manually: brew install ublue-os/tap/linux-mcp-server"
+            exit 1
+        fi
+    else
+        log_success "linux-mcp-server is installed"
     fi
     
     # Run appropriate setup script(s)
@@ -160,18 +218,56 @@ main() {
                 exit 1
             }
             ;;
+        vscode)
+            log_info "Configuring VS Code..."
+            "${SCRIPT_DIR}/setup-vscode.sh" || {
+                log_error "VS Code setup failed"
+                exit 1
+            }
+            ;;
+        antigravity)
+            log_info "Configuring Antigravity..."
+            "${SCRIPT_DIR}/setup-antigravity.sh" || {
+                log_error "Antigravity setup failed"
+                exit 1
+            }
+            ;;
+        gemini)
+            log_info "Configuring Gemini CLI..."
+            "${SCRIPT_DIR}/setup-gemini-cli.sh" || {
+                log_error "Gemini CLI setup failed"
+                exit 1
+            }
+            ;;
         all)
+            # Configure all tools - continue on error to attempt all
+            local failed_tools=()
+            
             log_info "Configuring OpenCode..."
-            "${SCRIPT_DIR}/setup-opencode.sh" || {
-                log_error "OpenCode setup failed"
-                exit 1
-            }
+            "${SCRIPT_DIR}/setup-opencode.sh" || failed_tools+=("OpenCode")
             echo ""
+            
             log_info "Configuring Goose..."
-            "${SCRIPT_DIR}/setup-goose.sh" || {
-                log_error "Goose setup failed"
-                exit 1
-            }
+            "${SCRIPT_DIR}/setup-goose.sh" || failed_tools+=("Goose")
+            echo ""
+            
+            log_info "Configuring VS Code..."
+            "${SCRIPT_DIR}/setup-vscode.sh" || failed_tools+=("VS Code")
+            echo ""
+            
+            log_info "Configuring Antigravity..."
+            "${SCRIPT_DIR}/setup-antigravity.sh" || failed_tools+=("Antigravity")
+            echo ""
+            
+            log_info "Configuring Gemini CLI..."
+            "${SCRIPT_DIR}/setup-gemini-cli.sh" || failed_tools+=("Gemini CLI")
+            
+            # Report failures if any
+            if [[ ${#failed_tools[@]} -gt 0 ]]; then
+                echo ""
+                log_warn "Some tools failed to configure: ${failed_tools[*]}"
+                log_info "Check individual tool logs for details"
+            fi
             ;;
         *)
             log_error "Invalid mode: $mode"
@@ -194,15 +290,29 @@ main() {
             echo "  → Restart Goose to activate changes"
             echo "  ℹ Note: dosu MCP support for Goose planned for Phase 4"
             ;;
+        vscode)
+            echo "  ✓ VS Code configured with dosu MCP and linux-mcp-server"
+            echo "  → Restart VS Code to activate changes"
+            ;;
+        antigravity)
+            echo "  ✓ Antigravity configured with dosu MCP and linux-mcp-server"
+            echo "  → Restart Antigravity to activate changes"
+            ;;
+        gemini)
+            echo "  ✓ Gemini CLI configured with dosu MCP and linux-mcp-server"
+            echo "  → Restart Gemini CLI to activate changes"
+            ;;
         all)
-            echo "  ✓ OpenCode configured with dosu MCP and linux-mcp-server"
-            echo "  ✓ Goose configured with linux-mcp-server"
-            echo "  → Restart both tools to activate changes"
-            echo "  ℹ Note: dosu MCP support for Goose planned for Phase 4"
+            echo "  ✓ Configured all detected tools with MCP servers"
+            echo "  → Restart all tools to activate changes"
+            if [[ ${#failed_tools[@]} -eq 0 ]]; then
+                echo "  ✓ All tools configured successfully"
+            fi
             ;;
     esac
     echo ""
     log_info "Backups created with timestamp suffix (.backup)"
+
     log_info "For troubleshooting, see ~/.config/opencode/logs/ or ~/.config/goose/logs/"
 }
 
