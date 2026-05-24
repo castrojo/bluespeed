@@ -34,18 +34,25 @@ any contributor: knuckle install → just setup → same lab
 1. **CNCF first** — every tool is a CNCF project. No custom services where a CNCF tool exists.
 
 2. **No custom intermediary APIs** ⛔ — direct k8s/Argo API only. BST build jobs are Argo
-   Workflows. VM lifecycle is `kubectl`/`virtctl`. Any custom API service is a violation.
+   Workflows. VM lifecycle is `virtctl`. Any custom API service is a violation.
 
-3. **Reproducible** — `just setup` on any compatible hardware produces the same result.
+3. **Argo is the deployment engine** ⛔ — all cluster operations go through Argo WorkflowTemplates.
+   No `kubectl apply -f` except to bootstrap Argo itself (`just install-argo`). Every deployment
+   is visible in the Argo UI with audit trail, retry policies, and per-step logs.
 
-4. **Justfile-driven** — every operation has a `just` recipe. No bespoke runbooks.
+4. **No Helm** ⛔ — raw k8s manifests submitted via Argo. No Helm charts, releases, helmfile,
+   or helm operator for any component.
 
-5. **Contributor-ready** — any Bluefin contributor can deploy this on their own hardware.
+5. **Reproducible** — `just setup` on any compatible hardware produces the same result.
 
-6. **Agent-driven but human-operable** — AI goes faster. A human with `just` gets the same
+6. **Justfile-driven** — every operation has a `just` recipe. No bespoke runbooks.
+
+7. **Contributor-ready** — any Bluefin contributor can deploy this on their own hardware.
+
+8. **Agent-driven but human-operable** — AI goes faster. A human with `just` gets the same
    result. The Justfile is the interface.
 
-7. **Both umbrella and individual recipes** — `just setup` calls all steps in order. Every
+9. **Both umbrella and individual recipes** — `just setup` calls all steps in order. Every
    step is also a standalone recipe for day-2 maintenance. Never one without the other.
 
 ---
@@ -83,15 +90,21 @@ paths, manifests, Justfile recipes, docs, code — uses real descriptive terms.
                      │ first boot — Ignition runs once
                      ▼
 ┌─────────────────────────────────────────────────────┐
-│  bluespeed day-2  (everything after first boot)      │
+│  bootstrap (kubectl apply — one time only)           │
+│  just install-argo                                   │
+└────────────────────┬────────────────────────────────┘
+                     │ Argo is now running
+                     ▼
+┌─────────────────────────────────────────────────────┐
+│  day-2 via Argo  (all deployments through Argo UI)   │
 │                                                      │
-│  just setup          ← umbrella, calls all below     │
-│  just install-kubevirt                               │
-│  just install-kubestellar                            │
-│  just install-cdi                                    │
-│  just install-argo   ← BST jobs run as workflows     │
-│  just install-test-vms                               │
-│  just setup-otel HOST=...                            │
+│  just setup              ← umbrella, calls all below │
+│  just install-kubevirt   → argo submit               │
+│  just install-kubestellar→ argo submit               │
+│  just install-cdi        → argo submit               │
+│  just install-test-vms   → argo submit               │
+│  just setup-otel         → argo submit               │
+│  just trigger-build      → argo submit               │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -107,7 +120,8 @@ paths, manifests, Justfile recipes, docs, code — uses real descriptive terms.
 | Ignition config source (`control-plane.bu`) | **bluespeed** |
 | Disk layout / fstab | user (install-time decision) |
 | SSH key content | user (install-time decision) |
-| All k8s workloads (KubeVirt, Argo, CDI, etc.) | **bluespeed** |
+| Argo bootstrap (`just install-argo`) | **bluespeed** (only direct kubectl) |
+| All k8s workloads post-bootstrap | **bluespeed** (Argo WorkflowTemplates) |
 | BST build job orchestration | **bluespeed** (Argo WorkflowTemplates) |
 | Test VM manifests | **bluespeed** |
 
@@ -126,7 +140,7 @@ Ignition JSON for embedding in the knuckle ISO.
 
 | Component | How | Why here |
 |---|---|---|
-| k3s | Flatcar sysext — pinned version | Must be running before `just` recipes can target the cluster |
+| k3s | Flatcar sysext — pinned version | Must be running before any `just` recipes can target the cluster |
 | BST | Flatcar sysext — same pattern as k3s | Core build dependency, must be available at first boot |
 | zot Quadlet | systemd Quadlet — OCI registry | Only hard boot dependency; everything else is day-2 |
 | SSH key | Parameterised placeholder | Contributor substitutes their own key at install time |
@@ -141,23 +155,26 @@ Ignition JSON for embedding in the knuckle ISO.
 
 ## Justfile Shape
 
-All day-2 operations. Idempotent. Human-driveable. Every recipe runnable standalone.
+Two phases: bootstrap (Argo only), then everything else via Argo.
 
 ```
-just setup                  # umbrella — runs everything below in order
-just install-kubevirt        # KubeVirt operator + CR
-just install-kubestellar     # KubeStellar
-just install-cdi             # Containerized Data Importer
-just install-argo            # Argo Workflows — BST job engine
-just install-test-vms        # test VM manifests from kubevirt/
-just setup-otel HOST=...     # observability stack (OTel, Loki, Prometheus, Grafana)
+# Phase 1 — bootstrap (direct kubectl, one time only)
+just install-argo            # installs Argo Workflows via kubectl apply
+
+# Phase 2 — all subsequent operations submit Argo WorkflowTemplates
+just setup                   # umbrella — runs all phase-2 recipes in order
+just install-kubevirt        # → argo submit workflowtemplate/install-kubevirt
+just install-kubestellar     # → argo submit workflowtemplate/install-kubestellar
+just install-cdi             # → argo submit workflowtemplate/install-cdi
+just install-test-vms        # → argo submit workflowtemplate/install-test-vms
+just setup-otel HOST=...     # → argo submit workflowtemplate/setup-otel
+just trigger-build VARIANT IMAGE  # → argo submit workflowtemplate/bst-build
 ```
 
 ### Tenet enforced
 
-Every recipe in `just setup` is also independently runnable. A contributor who only
-wants to install KubeVirt runs `just install-kubevirt`. A contributor who wants the full
-lab from scratch runs `just setup`. Both paths work. Always.
+Every recipe in `just setup` is also independently runnable. Both paths always work.
+All phase-2 deployments are visible in the Argo UI at `:2746`.
 
 ---
 
@@ -193,20 +210,27 @@ All deployed as Podman Quadlets on the control plane. No Helm.
 
 ### ghost-lab API (FastAPI :9000) — REMOVED ✂️
 
-A custom Python FastAPI service was used to orchestrate BST build jobs. This is a CNCF
-violation: a custom service where a CNCF tool (Argo Workflows) already does the job.
-
-**Replacement:** BST build pipeline as Argo `WorkflowTemplate` CRDs in `argo/`.
-
-- Build jobs are visible in the Argo UI at `:2746`
-- Per-step logs, retry policies, and audit trail — built in
-- No custom code to maintain
-- `just trigger-build VARIANT=... IMAGE=...` invokes via Argo API
+Custom Python FastAPI for BST job orchestration — CNCF violation.
+**Replacement:** Argo `WorkflowTemplate` in `argo/`. Visible in Argo UI at `:2746`.
 
 ### Perses — REMOVED ✂️
 
-Replaced by Grafana. Perses is immature, poorly documented, and has no advantage over
-Grafana for a Loki + Prometheus stack. Grafana is the canonical pairing for both.
+Replaced by Grafana. Grafana is the canonical pairing for Loki + Prometheus.
+
+---
+
+## Argo WorkflowTemplate Index
+
+All WorkflowTemplates live in `argo/`. Applied by `just install-argo`.
+
+| File | Purpose |
+|---|---|
+| `argo/install-kubevirt.yaml` | Install KubeVirt operator + CR |
+| `argo/install-cdi.yaml` | Install CDI |
+| `argo/install-kubestellar.yaml` | Install KubeStellar |
+| `argo/install-test-vms.yaml` | Apply test VM manifests |
+| `argo/setup-otel.yaml` | Deploy observability stack |
+| `argo/bst-build.yaml` | Run a BST build job |
 
 ---
 
@@ -214,27 +238,32 @@ Grafana for a Loki + Prometheus stack. Grafana is the canonical pairing for both
 
 ```
 bluespeed/
-├── Justfile                     ← all operations; just setup + individual recipes
+├── Justfile
 ├── control-plane/
-│   └── control-plane.bu         ← butane Ignition config for the control plane role
+│   └── control-plane.bu         ← Ignition config for control plane role
 ├── argo/
-│   └── bst-build.yaml           ← Argo WorkflowTemplate for BST build jobs
+│   ├── install-kubevirt.yaml    ← WorkflowTemplate
+│   ├── install-cdi.yaml
+│   ├── install-kubestellar.yaml
+│   ├── install-test-vms.yaml
+│   ├── setup-otel.yaml
+│   └── bst-build.yaml
 ├── kubevirt/
-│   ├── test-vm-dakota.yaml      ← KubeVirt VirtualMachine + DataVolume
+│   ├── test-vm-dakota.yaml
 │   ├── test-vm-stable.yaml
 │   └── test-vm-lts.yaml
 ├── otel/
 │   ├── ghost/
 │   │   ├── quadlets/            ← loki, prometheus, otelcol, grafana Quadlets
 │   │   └── config/              ← loki, prometheus, otelcol, grafana configs
-│   ├── agent/                   ← OTel agent config + systemd unit
+│   ├── agent/
 │   ├── dashboards/              ← Grafana dashboard JSON
-│   ├── deploy.sh                ← OTel stack deploy (control plane)
-│   └── deploy-agent.sh          ← OTel agent deploy (per node)
+│   ├── deploy.sh
+│   └── deploy-agent.sh
 ├── docs/
-│   └── design.md                ← this file
+│   └── design.md
 └── exos/
-    └── registry.yaml            ← fleet node registry (rename pending #13)
+    └── registry.yaml
 ```
 
 ---
@@ -255,21 +284,21 @@ Work is tracked in `castrojo/bluespeed`. All issues are labelled `copilot-ready`
 
 | Issue | Title | Type |
 |---|---|---|
-| [#11](https://github.com/castrojo/bluespeed/issues/11) | Add `control-plane/control-plane.bu` — Flatcar Ignition config | improvement |
+| [#11](https://github.com/castrojo/bluespeed/issues/11) | Add `control-plane/control-plane.bu` | improvement |
 | [#12](https://github.com/castrojo/bluespeed/issues/12) | Eliminate ghost-lab API — replace with Argo Workflows | tech-debt |
 | [#13](https://github.com/castrojo/bluespeed/issues/13) | Fix lore-contaminated paths — rename `exos/`, correct `registry.yaml` | tech-debt |
 | [#14](https://github.com/castrojo/bluespeed/issues/14) | Add `just setup` umbrella + full day-2 recipe set | improvement |
-| [#15](https://github.com/castrojo/bluespeed/issues/15) | Add Argo WorkflowTemplate for BST builds | improvement |
+| [#15](https://github.com/castrojo/bluespeed/issues/15) | Add Argo WorkflowTemplates for all cluster operations | improvement |
 | [#16](https://github.com/castrojo/bluespeed/issues/16) | Rename test VM manifests to `test-vm-*.yaml` | tech-debt |
 
 ### Suggested implementation order
 
-1. **#13** — rename paths first so new files land in the right place
+1. **#13** — rename paths first
 2. **#16** — rename test VM manifests
-3. **#11** — write `control-plane.bu` into the clean path
+3. **#11** — write `control-plane.bu`
 4. **#14** — add `just setup` + day-2 recipes
-5. **#12** — eliminate ghost-lab API
-6. **#15** — Argo WorkflowTemplate for BST (depends on #12, #14)
+5. **#15** — all Argo WorkflowTemplates (expanded scope: all cluster ops, not just BST)
+6. **#12** — eliminate ghost-lab API
 
 ---
 
