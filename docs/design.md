@@ -150,7 +150,7 @@ just install-kubestellar     # KubeStellar
 just install-cdi             # Containerized Data Importer
 just install-argo            # Argo Workflows — BST job engine
 just install-test-vms        # test VM manifests from kubevirt/
-just setup-otel HOST=...     # observability stack (OTel, Loki, Prometheus, Perses)
+just setup-otel HOST=...     # observability stack (OTel, Loki, Prometheus, Grafana)
 ```
 
 ### Tenet enforced
@@ -158,6 +158,34 @@ just setup-otel HOST=...     # observability stack (OTel, Loki, Prometheus, Pers
 Every recipe in `just setup` is also independently runnable. A contributor who only
 wants to install KubeVirt runs `just install-kubevirt`. A contributor who wants the full
 lab from scratch runs `just setup`. Both paths work. Always.
+
+---
+
+## Observability Stack
+
+```
+node-1 ──► OTel Collector (agent)
+node-2 ──► OTel Collector (agent) ──► OTel Collector (aggregator, control plane)
+node-N ──►                                       │
+                                     ┌───────────┼───────────┐
+                                  Loki:3100  Prometheus:9090  │
+                                  (logs)     (metrics)        │
+                                     └───────────┬───────────┘
+                                           Grafana:3000
+                                           (dashboards)
+```
+
+| Component | Project | CNCF status | Port |
+|---|---|---|---|
+| OTel Collector | OpenTelemetry | CNCF graduated | 4317 / 4318 |
+| Prometheus | Prometheus | CNCF graduated | 9090 |
+| Loki | Grafana Labs | explicit exception¹ | 3100 |
+| Grafana | Grafana Labs | explicit exception¹ | 3000 |
+
+¹ No CNCF-graduated equivalent for log storage + dashboarding. Loki and Grafana are
+kept as an explicit pair — same vendor, canonical integration, well-documented.
+
+All deployed as Podman Quadlets on the control plane. No Helm.
 
 ---
 
@@ -175,6 +203,11 @@ violation: a custom service where a CNCF tool (Argo Workflows) already does the 
 - No custom code to maintain
 - `just trigger-build VARIANT=... IMAGE=...` invokes via Argo API
 
+### Perses — REMOVED ✂️
+
+Replaced by Grafana. Perses is immature, poorly documented, and has no advantage over
+Grafana for a Loki + Prometheus stack. Grafana is the canonical pairing for both.
+
 ---
 
 ## Repository Layout (target state)
@@ -191,7 +224,12 @@ bluespeed/
 │   ├── test-vm-stable.yaml
 │   └── test-vm-lts.yaml
 ├── otel/
-│   ├── deploy.sh                ← OTel stack deploy (central node)
+│   ├── ghost/
+│   │   ├── quadlets/            ← loki, prometheus, otelcol, grafana Quadlets
+│   │   └── config/              ← loki, prometheus, otelcol, grafana configs
+│   ├── agent/                   ← OTel agent config + systemd unit
+│   ├── dashboards/              ← Grafana dashboard JSON
+│   ├── deploy.sh                ← OTel stack deploy (control plane)
 │   └── deploy-agent.sh          ← OTel agent deploy (per node)
 ├── docs/
 │   └── design.md                ← this file
@@ -240,3 +278,4 @@ Work is tracked in `castrojo/bluespeed`. All issues are labelled `copilot-ready`
 - [projectbluefin/bluespeed](https://github.com/projectbluefin/bluespeed) — upstream product
 - [projectbluefin/knuckle](https://github.com/projectbluefin/knuckle) — Flatcar installer (OS boundary)
 - [projectbluefin/dakota](https://github.com/projectbluefin/dakota) — BuildStream image (BST source)
+- [castrojo/utah](https://github.com/castrojo/utah) — autonomous implementation repo
