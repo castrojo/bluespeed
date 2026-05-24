@@ -98,13 +98,13 @@ paths, manifests, Justfile recipes, docs, code — uses real descriptive terms.
 ┌─────────────────────────────────────────────────────┐
 │  day-2 via Argo  (all deployments through Argo UI)   │
 │                                                      │
-│  just setup              ← umbrella, calls all below │
-│  just install-kubevirt   → argo submit               │
-│  just install-kubestellar→ argo submit               │
-│  just install-cdi        → argo submit               │
-│  just install-test-vms   → argo submit               │
-│  just setup-otel         → argo submit               │
-│  just trigger-build      → argo submit               │
+│  just setup               ← umbrella, calls all below│
+│  just install-kubevirt    → argo submit              │
+│  just install-kubestellar → argo submit              │
+│  just install-cdi         → argo submit              │
+│  just install-test-vms    → argo submit              │
+│  just setup-otel          → argo submit              │
+│  just trigger-build       → argo submit              │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -184,12 +184,12 @@ All phase-2 deployments are visible in the Argo UI at `:2746`.
 node-1 ──► OTel Collector (agent)
 node-2 ──► OTel Collector (agent) ──► OTel Collector (aggregator, control plane)
 node-N ──►                                       │
-                                     ┌───────────┼───────────┐
-                                  Loki:3100  Prometheus:9090  │
-                                  (logs)     (metrics)        │
-                                     └───────────┬───────────┘
-                                           Grafana:3000
-                                           (dashboards)
+                                     ┌───────────┴───────────┐
+                                  Loki:3100          Prometheus:9090
+                                  (logs)             (metrics)
+                                        ↑ queried by ↑
+                                  KubeStellar Console :8090
+                                  (dashboard — already deployed)
 ```
 
 | Component | Project | CNCF status | Port |
@@ -197,12 +197,17 @@ node-N ──►                                       │
 | OTel Collector | OpenTelemetry | CNCF graduated | 4317 / 4318 |
 | Prometheus | Prometheus | CNCF graduated | 9090 |
 | Loki | Grafana Labs | explicit exception¹ | 3100 |
-| Grafana | Grafana Labs | explicit exception¹ | 3000 |
+| KubeStellar Console | projectbluefin | — | 8090 |
 
-¹ No CNCF-graduated equivalent for log storage + dashboarding. Loki and Grafana are
-kept as an explicit pair — same vendor, canonical integration, well-documented.
+¹ No CNCF-graduated equivalent for log aggregation. Loki kept as explicit exception.
 
-All deployed as Podman Quadlets on the control plane. No Helm.
+**KubeStellar Console is the dashboard.** It is already deployed at `:8090`. It provides
+cluster management, workload visibility, and dashboard panels. Dashboard IDs must be valid
+UUIDs. `otel/dashboards/*.json` are KubeStellar Console format.
+
+No Grafana. No Perses.
+
+All collection/storage components deployed as Podman Quadlets on the control plane. No Helm.
 
 ---
 
@@ -215,13 +220,14 @@ Custom Python FastAPI for BST job orchestration — CNCF violation.
 
 ### Perses — REMOVED ✂️
 
-Replaced by Grafana. Grafana is the canonical pairing for Loki + Prometheus.
+KubeStellar Console is the dashboard. Perses served no role that KubeStellar Console
+does not already provide.
 
 ---
 
 ## Argo WorkflowTemplate Index
 
-All WorkflowTemplates live in `argo/`. Applied by `just install-argo`.
+All WorkflowTemplates live in `argo/`. Applied by `just apply-workflow-templates` after bootstrap.
 
 | File | Purpose |
 |---|---|
@@ -242,7 +248,7 @@ bluespeed/
 ├── control-plane/
 │   └── control-plane.bu         ← Ignition config for control plane role
 ├── argo/
-│   ├── install-kubevirt.yaml    ← WorkflowTemplate
+│   ├── install-kubevirt.yaml
 │   ├── install-cdi.yaml
 │   ├── install-kubestellar.yaml
 │   ├── install-test-vms.yaml
@@ -254,10 +260,10 @@ bluespeed/
 │   └── test-vm-lts.yaml
 ├── otel/
 │   ├── ghost/
-│   │   ├── quadlets/            ← loki, prometheus, otelcol, grafana Quadlets
-│   │   └── config/              ← loki, prometheus, otelcol, grafana configs
+│   │   ├── quadlets/            ← loki, prometheus, otelcol Quadlets
+│   │   └── config/              ← loki, prometheus, otelcol configs
 │   ├── agent/
-│   ├── dashboards/              ← Grafana dashboard JSON
+│   ├── dashboards/              ← KubeStellar Console dashboard JSON (UUID IDs)
 │   ├── deploy.sh
 │   └── deploy-agent.sh
 ├── docs/
@@ -297,7 +303,7 @@ Work is tracked in `castrojo/bluespeed`. All issues are labelled `copilot-ready`
 2. **#16** — rename test VM manifests
 3. **#11** — write `control-plane.bu`
 4. **#14** — add `just setup` + day-2 recipes
-5. **#15** — all Argo WorkflowTemplates (expanded scope: all cluster ops, not just BST)
+5. **#15** — all Argo WorkflowTemplates
 6. **#12** — eliminate ghost-lab API
 
 ---
