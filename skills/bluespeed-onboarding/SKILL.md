@@ -1,11 +1,11 @@
 ---
 name: bluespeed-onboarding
-description: Setup dosu MCP and linux-mcp-server for Bluefin maintainers
+description: Setup dosu MCP and linux-mcp-server for Bluefin maintainers across multiple AI coding tools
 ---
 
 # bluespeed-onboarding
 
-Automated setup of MCP servers for Project Bluefin maintainers using AI coding tools (OpenCode/Goose).
+Automated setup of MCP servers for Project Bluefin maintainers using AI coding tools (OpenCode, Goose, VS Code, Antigravity, Gemini CLI).
 
 ## When to Use
 
@@ -25,6 +25,18 @@ Configures AI tools with the following MCP servers:
 ### Goose (Partial Support - MVP)
 - **linux-mcp-server** - Local server for Linux system diagnostics
 - **dosu MCP** - Planned for Phase 4 (pending Goose remote MCP research)
+
+### VS Code (Full Support)
+- **dosu MCP** - Remote server providing Bluefin knowledge base access  
+- **linux-mcp-server** - Local server for Linux system diagnostics
+
+### Antigravity (Full Support)
+- **dosu MCP** - Remote server providing Bluefin knowledge base access
+- **linux-mcp-server** - Local server for Linux system diagnostics
+
+### Gemini CLI (Full Support)
+- **dosu MCP** - Remote server providing Bluefin knowledge base access
+- **linux-mcp-server** - Local server for Linux system diagnostics
 
 ## Prerequisites
 
@@ -148,16 +160,14 @@ fi
 
 ```bash
 # Check if linux-mcp-server already exists
-if jq -e '.mcp."linux-mcp-server"' "$OPENCODE_CONFIG" >/dev/null 2>&1; then
+if jq -e '.mcp."linux_mcp_server"' "$OPENCODE_CONFIG" >/dev/null 2>&1; then
     echo "WARNING: linux-mcp-server already configured, skipping..."
 else
     # Merge linux-mcp-server configuration
-    jq --arg user "$USERNAME" '.mcp."linux-mcp-server" = {
-        "type": "stdio",
-        "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
-        "env": {
-            "LINUX_MCP_USER": $user
-        }
+    jq --arg user "$USERNAME" '.mcp."linux_mcp_server" = {
+        "type": "local",
+        "command": ["/usr/bin/env", "LINUX_MCP_USER=" + $user, "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server"],
+        "enabled": true
     }' "$OPENCODE_CONFIG" > "${OPENCODE_CONFIG}.tmp"
     mv "${OPENCODE_CONFIG}.tmp" "$OPENCODE_CONFIG"
     echo "SUCCESS: Added linux-mcp-server configuration (user: $USERNAME)"
@@ -363,3 +373,164 @@ Planned improvements:
 - **Configuration Examples**: https://github.com/castrojo/bluespeed/tree/main/configs
 - **Agent Guidelines**: https://github.com/castrojo/bluespeed/blob/main/AGENTS.md
 - **Project Bluefin**: https://github.com/ublue-os/bluefin
+
+## VS Code Configuration
+
+To configure VS Code, follow similar steps targeting `~/.config/Code/User/settings.json`:
+
+### VS Code Step 1: Create/Backup Config
+
+```bash
+VSCODE_CONFIG="$HOME/.config/Code/User/settings.json"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S")
+
+# Create config directory if needed
+mkdir -p "$HOME/.config/Code/User"
+
+# Create default config if missing
+if [[ ! -f "$VSCODE_CONFIG" ]]; then
+    echo '{"mcp":{"servers":{}}}' | jq '.' > "$VSCODE_CONFIG"
+    echo "Created default VS Code settings"
+fi
+
+# Backup existing config
+BACKUP_PATH="${VSCODE_CONFIG}.${TIMESTAMP}.backup"
+cp "$VSCODE_CONFIG" "$BACKUP_PATH"
+echo "Backup created: $BACKUP_PATH"
+```
+
+### VS Code Step 2: Merge MCP Servers
+
+```bash
+# Merge both dosu and linux-mcp-server into mcp.servers
+jq --arg user "$USERNAME" '
+.mcp.servers = (.mcp.servers // {}) |
+.mcp.servers.dosu = {
+    "type": "http",
+    "url": "https://api.dosu.dev/v1/mcp",
+    "headers": {
+        "X-Deployment-ID": "83775020-c22e-485a-a222-987b2f5a3823"
+    }
+} |
+.mcp.servers."linux-mcp-server" = {
+    "type": "stdio",
+    "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
+    "env": {
+        "LINUX_MCP_USER": $user
+    }
+}
+' "$VSCODE_CONFIG" > "${VSCODE_CONFIG}.tmp"
+mv "${VSCODE_CONFIG}.tmp" "$VSCODE_CONFIG"
+echo "SUCCESS: Added MCP servers to VS Code"
+```
+
+### VS Code Step 3: Validate and Restart
+
+```bash
+# Validate JSON
+if jq empty "$VSCODE_CONFIG" 2>/dev/null; then
+    echo "SUCCESS: JSON validation passed"
+else
+    echo "ERROR: JSON validation failed, restoring backup..."
+    cp "$BACKUP_PATH" "$VSCODE_CONFIG"
+    exit 1
+fi
+```
+
+After successful configuration, tell the user:
+
+```
+✓ VS Code configuration complete!
+
+Next steps:
+  1. Close all VS Code windows
+  2. Restart VS Code from application menu or 'code' command
+  3. Verify MCP servers loaded: Check GitHub Copilot chat panel
+  4. Test: Ask "Can you check my system information?" (tests linux-mcp-server)
+
+Troubleshooting:
+  - Logs: ~/.config/Code/logs/
+  - Config: ~/.config/Code/User/settings.json
+  - Backup: [backup path from VS Code step 1]
+```
+
+## Antigravity Configuration
+
+Antigravity uses the same configuration format as VS Code. Target `~/.config/Antigravity/User/settings.json` and follow the exact same steps as VS Code above, replacing the config path.
+
+## Gemini CLI Configuration
+
+To configure Gemini CLI, target `~/.gemini/settings.json`:
+
+### Gemini Step 1: Create/Backup Config
+
+```bash
+GEMINI_CONFIG="$HOME/.gemini/settings.json"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S")
+
+# Create config directory if needed
+mkdir -p "$HOME/.gemini"
+
+# Create default config if missing
+if [[ ! -f "$GEMINI_CONFIG" ]]; then
+    echo '{"mcpServers":{}}' | jq '.' > "$GEMINI_CONFIG"
+    echo "Created default Gemini CLI settings"
+fi
+
+# Backup existing config
+BACKUP_PATH="${GEMINI_CONFIG}.${TIMESTAMP}.backup"
+cp "$GEMINI_CONFIG" "$BACKUP_PATH"
+echo "Backup created: $BACKUP_PATH"
+```
+
+### Gemini Step 2: Merge MCP Servers
+
+```bash
+# Merge both dosu and linux-mcp-server into mcpServers
+jq --arg user "$USERNAME" '
+.mcpServers = (.mcpServers // {}) |
+.mcpServers.dosu = {
+    "url": "https://api.dosu.dev/v1/mcp",
+    "headers": {
+        "X-Deployment-ID": "83775020-c22e-485a-a222-987b2f5a3823"
+    }
+} |
+.mcpServers."linux-mcp-server" = {
+    "command": "/home/linuxbrew/.linuxbrew/bin/linux-mcp-server",
+    "env": {
+        "LINUX_MCP_USER": $user
+    }
+}
+' "$GEMINI_CONFIG" > "${GEMINI_CONFIG}.tmp"
+mv "${GEMINI_CONFIG}.tmp" "$GEMINI_CONFIG"
+echo "SUCCESS: Added MCP servers to Gemini CLI"
+```
+
+### Gemini Step 3: Validate and Restart
+
+```bash
+# Validate JSON
+if jq empty "$GEMINI_CONFIG" 2>/dev/null; then
+    echo "SUCCESS: JSON validation passed"
+else
+    echo "ERROR: JSON validation failed, restoring backup..."
+    cp "$BACKUP_PATH" "$GEMINI_CONFIG"
+    exit 1
+fi
+```
+
+After successful configuration, tell the user:
+
+```
+✓ Gemini CLI configuration complete!
+
+Next steps:
+  1. Restart your Gemini CLI session
+  2. Verify MCP servers loaded: Check startup messages or server list
+  3. Test: Ask "Can you check my system information?" (tests linux-mcp-server)
+
+Troubleshooting:
+  - Config: ~/.gemini/settings.json
+  - Backup: [backup path from Gemini step 1]
+```
+
